@@ -53,3 +53,9 @@ streamlit run app.py
 ```
 
 ## Vídeo explicando o funcionamento
+
+https://github.com/user-attachments/assets/a3c4e3bc-7725-4762-8678-0a1daf994e90
+
+## Vídeo explicando o código
+
+https://github.com/user-attachments/assets/5f8b5ea5-c8cc-4312-a37f-46294cb81b88
