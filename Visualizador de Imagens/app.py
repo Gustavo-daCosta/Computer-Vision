@@ -9,20 +9,29 @@ st.set_page_config(
 )
 
 # Função para visualizar a imagem
-def mostrar_imagem(file, caption = "", use_container_width = False):
-    if hasattr(file, "type") and file.type.startswith("image/"):
-        st.image(file, caption=caption, clamp=True, use_container_width=use_container_width)
-    elif isinstance(file, Image.Image):
-        st.image(file, caption=caption, clamp=True, use_container_width=use_container_width)
+def mostrar_imagem(file, caption="", max_height=512):
+    if (hasattr(file, "type") and file.type.startswith("image/")) or isinstance(file, Image.Image):
+        image = file if isinstance(file, Image.Image) else Image.open(file)
+
+        # Travar altura da imagem
+        orig_width, orig_height = image.size
+        aspect_ratio = orig_width / orig_height
+        new_height = max_height
+        new_width = int(aspect_ratio * new_height)
+        resized_image = image.resize((new_width, new_height))
+
+        st.image(resized_image, caption=caption, clamp=True, use_container_width=False, output_format="auto",)
     else:
         st.error("Tipo de arquivo não suportado")
 
 # Função para exportar imagem
 def exportar_imagem(image, format: str):
-    buf = None
     buf = io.BytesIO()
-    image.save(buf, format= "JPEG" if format.upper() == "JPG" else format.upper())
-    st.download_button(
+    pil_format = "JPEG" if format.upper() == "JPG" else format.upper()
+    img_to_save = image if pil_format == "JPEG" and image.mode in ("RGBA", "LA") else image.convert("RGB")
+    img_to_save.save(buf, format=pil_format)
+    
+    st.sidebar.download_button(
         label=f"Exportar imagem em {format.upper()}",
         data=buf.getvalue(),
         file_name=f"imagem_modificada.{format.lower()}",
@@ -33,29 +42,33 @@ def exportar_imagem(image, format: str):
 st.header("Visualizador de Imagens")
 
 # Upload da imagem
-file = st.file_uploader("Faça o upload de uma imagem")
+file = st.sidebar.file_uploader("Faça o upload de uma imagem", type=["PNG", "JPG", "JPEG"])
+st.sidebar.info("Tipos de arquivos suportados: PNG ou JPG", icon="ℹ️")
 
 if file is None:
     st.warning("Faça o upload de uma imagem!", icon="⚠️")
-    st.info("Tipos de arquivos suportados: PNG ou JPG", icon="ℹ️")
 else:
     img = Image.open(file)
-    
+
+    # Inicializa a imagem modificada
+    if "modified_img" not in st.session_state or st.session_state.modified_img is None:
+        st.session_state.modified_img = img.copy()
+
     btn1, btn2, btn3, btn4, btn5, btn6 = st.columns(6)
-    origin_img, custom_img = st.columns(2)
-    
+    origin_img, custom_img = st.columns(2, border=True)
+
     # Botão de resetar imagem
     if st.button("Resetar imagem modificada", use_container_width=True):
         st.session_state.modified_img = img.copy()
 
     # Visualização da imagem original
     with origin_img:
-        mostrar_imagem(file, caption="Imagem original", use_container_width=True)
+        mostrar_imagem(img, caption="Imagem original")
 
-    # Modifica a imagem na sessão local, permitindo visualizar a imagem com filtro em tempo real
-    if "modified_img" not in st.session_state:
-        st.session_state.modified_img = img.copy()
-        
+    # Visualizar a imagem modificada
+    with custom_img:
+        mostrar_imagem(st.session_state.modified_img, caption="Imagem modificada")
+
     # Criações dos botões de filtro
     with btn1: # Escala de cinza
         if st.button("Escala de cinza", key="btn_gray_scale", use_container_width=True):
@@ -77,10 +90,6 @@ else:
         if st.button("Detecção de bordas", key="btn_border", use_container_width=True):
             st.session_state.modified_img = st.session_state.modified_img.filter(ImageFilter.FIND_EDGES)
 
-    # Visualizar a imagem modificada
-    with custom_img:
-        mostrar_imagem(st.session_state.modified_img, caption="Imagem modificada", use_container_width=True)
-    
     rotate_button, resize_button = st.columns(2)
     
     # Botão de rotacionar imagem
@@ -96,11 +105,10 @@ else:
         if st.button("Aplicar Redimensionamento", key="apply_resize"):
             st.session_state.modified_img = st.session_state.modified_img.resize((int(width), int(height)))
     
-    st.divider()
     
     # Seção de exportar imagens, permitindo exportar a imagem em PNG ou JPG
-    st.header("Exportar imagem modificada")
+    st.sidebar.divider()
+    st.sidebar.header("Exportar imagem modificada")
     
-    export_png_button, export_jpg_button = st.columns(2)
-    with export_png_button: exportar_imagem(st.session_state.modified_img, "PNG")
-    with export_jpg_button: exportar_imagem(st.session_state.modified_img, "JPG")
+    exportar_imagem(st.session_state.modified_img, "PNG")
+    exportar_imagem(st.session_state.modified_img, "JPG")
